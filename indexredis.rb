@@ -79,13 +79,13 @@ else
     filename = redis.get r
     filename_list = filename_list + " " + filename
     if flist >= 2000 then
-      system("grep -H \"#{regex}\" #{filename_list}")
+      system("grep -E -H \"#{regex}\" #{filename_list}")
       flist = 0
       filename_list = ""
     end
     flist = flist + 1
   }
-  system("grep -H \"#{regex}\" #{filename_list}")
+  system("grep -E -H \"#{regex}\" #{filename_list}")
   #system("echo starting...")
   
   #puts cmd
