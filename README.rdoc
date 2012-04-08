@@ -1,0 +1,45 @@
+== indexed grep
+
+This was a fun experiment in speeding up grep using an index.
+
+== How it works
+
+The ruby script when called with the -i argument indexes a given directory.
+It creates a tri-gram index in redis.
+Redis sets are really a perfect way to store this kind of index ( at least conceptually ).
+Memory wise its another story and quite intensive. The index of the linux kernel source took 3GB or ram on my 64bit macbook. I had to disable redis persistence to fit it in. Also it took probably 90-120 minutes to generate the entire index.
+Once the index is created though it was quite usable and performance was very good, although the performance varies greatly depending on how common the search string is. If the index can narrow down the search to a handful of files it blazes. 
+
+Once the index is created you can use the same script with a regex as the argument.
+It asks the index to give it a list of files with possible matches.
+Then it calls 'grep' with the list of files as an argument.
+
+One tricky part is knowing which string to look up in the index when given a regex.
+Its tricky because a regex could contain OR sections like "hello (world|bob)".
+You need to build a parse tree for the regex and then use that to pull out a string.
+I got around this by using the GNU grep source code and modifying it so that it  builds the parse tree, prints out the string of maximum length guaranteed to be found by the regex, then exits. That code is in the hackedgrep/ directory.
+
+
+
+== Example and comparison with normal grep
+
+This example is an ideal use case for indexedgrep because the index will only return one file.
+
+    bash-3.2$ time ruby indexredis.rb "BMPSTR 8"
+    WARNING: using the built-in Timeout class which is known to have issues when used for opening connections. Install the SystemTimer gem if you want to make sure the Redis client will not hang.
+    Regex: BMPSTR 8
+    Connected to redis
+    |BMP||MPS||PST||STR||TR ||R 8| 
+    /Users/brianbrowning/mirrors-linux-2.6-f4e52e7/net/netfilter/nf_conntrack_h323_asn1.c:#define BMPSTR 8
+
+    real    0m0.134s
+    user    0m0.032s
+    sys     0m0.011s
+
+    bash-3.2$ 
+    bash-3.2$ time grep --include='*.[c,h]' -r "BMPSTR 8" mirrors-linux-2.6-f4e52e7/
+    mirrors-linux-2.6-f4e52e7/net/netfilter/nf_conntrack_h323_asn1.c:#define BMPSTR 8
+
+    real    0m1.060s
+    user    0m0.630s
+    sys     0m0.391s
